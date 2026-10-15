@@ -34,6 +34,39 @@ done
 command -v glslc || echo "WARNING: glslc not found, Vulkan filters will not build"
 [ -d /usr/include/spirv ] && cp -r /usr/include/spirv "$PREFIX/include/" || echo "WARNING: spirv headers not found"
 
+echo "==> [0b] glslc that understands Vulkan 1.4 (Ubuntu's apt glslc is too old for FFmpeg 9.0)"
+glslc_ok() {
+  printf '#version 460\nlayout(local_size_x=1) in;\nvoid main(){}\n' > /tmp/t.comp
+  "$1" --target-env=vulkan1.4 --target-spv=spv1.6 -o /tmp/t.spv /tmp/t.comp >/dev/null 2>&1
+}
+GLSLC=""
+for c in "$NDK/shader-tools/linux-x86_64/glslc" "$(command -v glslc || true)"; do
+  if [ -n "$c" ] && [ -x "$c" ] && glslc_ok "$c"; then GLSLC="$c"; break; fi
+done
+if [ -z "$GLSLC" ]; then
+  echo "    No usable glslc found, building shaderc/glslc from source (host build, ~10 min)"
+  HOSTB="$WORK/hostbin"; mkdir -p "$HOSTB"
+  (
+    set -e
+    cd "$WORK"
+    [ -d shaderc_host ] || git clone --depth 1 https://github.com/google/shaderc.git shaderc_host
+    cd shaderc_host
+    python3 utils/git-sync-deps
+    env -u CC -u CXX -u CFLAGS -u CXXFLAGS -u LDFLAGS -u AR -u RANLIB -u STRIP -u NM \
+      cmake -S . -B _b -G Ninja -DCMAKE_BUILD_TYPE=Release \
+        -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=ON -DSHADERC_SKIP_COPYRIGHT_CHECK=ON
+    env -u CC -u CXX -u CFLAGS -u CXXFLAGS -u LDFLAGS -u AR -u RANLIB -u STRIP -u NM \
+      cmake --build _b --target glslc_exe -j"$JOBS"
+    cp _b/glslc/glslc "$HOSTB/glslc"
+  ) && glslc_ok "$HOSTB/glslc" && GLSLC="$HOSTB/glslc" || echo "WARNING: could not build a usable glslc"
+fi
+if [ -n "$GLSLC" ]; then
+  export PATH="$(dirname "$GLSLC"):$PATH"
+  echo "    Using glslc: $GLSLC"
+  glslc --version > "$WORK/glslc_version.txt" 2>&1 || true
+  head -n 4 "$WORK/glslc_version.txt"
+fi
+
 echo "==> [1] vulkan.pc (Vulkan headers + libvulkan.so come from the NDK)"
 VKH="$SYSROOT/usr/include/vulkan/vulkan_core.h"
 VKVER="$(grep -m1 '#define VK_HEADER_VERSION ' "$VKH" | awk '{print $3}')"
