@@ -263,7 +263,13 @@ done
 make -j"$JOBS" -k > "$WORK/log_ffmpeg_make.txt" 2>&1 || true
 for a in libavcodec/libavcodec.a libavformat/libavformat.a libavfilter/libavfilter.a libavutil/libavutil.a \
          libswscale/libswscale.a libswresample/libswresample.a fftools/ffmpeg.o; do
-  [ -f "$a" ] || { echo "ERROR: $a was not built. See $WORK/log_ffmpeg_make.txt"; tail -n 40 "$WORK/log_ffmpeg_make.txt"; exit 1; }
+  [ -f "$a" ] || {
+    echo "ERROR: $a was not built."
+    echo "==================== REAL COMPILE ERRORS (first 60) ===================="
+    grep -n -B2 -A6 -E 'error:|undefined reference|\*\*\* \[|fatal error|No such file' "$WORK/log_ffmpeg_make.txt" | head -n 120 || true
+    echo "==================== END OF ERRORS ===================="
+    exit 1
+  }
 done
 make install-libs install-headers > "$WORK/log_ffmpeg_install.txt" 2>&1
 
