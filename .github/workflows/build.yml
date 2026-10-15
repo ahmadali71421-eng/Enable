@@ -1,0 +1,22 @@
+name: Build FFmpeg
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          export ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME
+          chmod +x build_ffmpeg_shared.sh
+          ./build_ffmpeg_shared.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libffmpeg
+          path: build_mt/out/libffmpeg.so
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs
+          path: build_mt/log_*.txt
