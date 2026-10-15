@@ -216,7 +216,7 @@ echo "==> FFmpeg configure. Extra libs enabled: ${FF_ENABLES[*]:-none}"
   --disable-doc --disable-ffplay --enable-ffmpeg --enable-ffprobe \
   --enable-network --enable-iconv --disable-bzlib \
   --enable-gray --enable-swscale-alpha --enable-runtime-cpudetect \
-  --disable-jni --disable-mediacodec --disable-indev=android_camera \
+  --enable-jni --enable-mediacodec --disable-indev=android_camera \
   --enable-vulkan \
   ${FF_ENABLES[@]+"${FF_ENABLES[@]}"} \
   --extra-cflags="-O3 -fpic -I$PREFIX/include" \
@@ -225,7 +225,7 @@ echo "==> FFmpeg configure. Extra libs enabled: ${FF_ENABLES[*]:-none}"
   --extra-libs="$EXTRA_LIBS"
 
 echo "---- configured features ----"
-for k in VULKAN LIBX264 LIBMP3LAME LIBOPUS LIBVORBIS LIBFREETYPE LIBASS LIBWEBP LIBDAV1D LIBSOXR; do
+for k in VULKAN JNI MEDIACODEC LIBX264 LIBMP3LAME LIBOPUS LIBVORBIS LIBFREETYPE LIBASS LIBWEBP LIBDAV1D LIBSOXR; do
   if grep -qE "^#define CONFIG_${k} 1" config.h; then echo "ON   $k"; else echo "OFF  $k"; fi
 done
 NVF="$(grep -hcE '^#define CONFIG_[A-Z0-9_]*VULKAN_FILTER 1' config_components.h || true)"
