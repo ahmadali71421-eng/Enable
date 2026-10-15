@@ -216,7 +216,7 @@ echo "==> FFmpeg configure. Extra libs enabled: ${FF_ENABLES[*]:-none}"
   --disable-doc --disable-ffplay --enable-ffmpeg --enable-ffprobe \
   --enable-network --enable-iconv --disable-bzlib \
   --enable-gray --enable-swscale-alpha --enable-runtime-cpudetect \
-  --enable-jni --enable-mediacodec \
+  --disable-jni --disable-mediacodec --disable-indev=android_camera \
   --enable-vulkan \
   ${FF_ENABLES[@]+"${FF_ENABLES[@]}"} \
   --extra-cflags="-O3 -fpic -I$PREFIX/include" \
@@ -244,6 +244,9 @@ cp ffprobe "$WORK/out/libffprobe_exec.so"
 
 echo "==> Verify"
 readelf -d "$WORK/out/libffmpeg_exec.so" | grep NEEDED || true
+if readelf -d "$WORK/out/libffmpeg_exec.so" | grep -E 'libandroid|libmediandk|libcamera2ndk|libbinder'; then
+  echo "WARNING: binary still links Android platform libs; it will not start as a standalone process"
+fi
 strings -a "$WORK/out/libffmpeg_exec.so" > "$WORK/strings.txt"
 for f in scale_vulkan nlmeans_vulkan avgblur_vulkan xfade_vulkan drawtext subtitles hqdn3d; do
   if grep -qx "$f" "$WORK/strings.txt"; then echo "OK      $f"; else echo "MISSING $f"; fi
