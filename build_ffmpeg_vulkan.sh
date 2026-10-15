@@ -69,6 +69,22 @@ fi
 cd ffmpeg
 
 echo "==> [4/4] configure + make"
+
+# FFmpeg renames this option between versions, so read it from configure --help
+HELP="$(./configure --help)"
+echo "---- Vulkan / shader related options in this FFmpeg ----"
+echo "$HELP" | grep -iE 'shaderc|glslang|spirv|vulkan' || true
+echo "--------------------------------------------------------"
+SPV_OPT=""
+for o in --enable-libshaderc --enable-shaderc --enable-spirv-compiler; do
+  if echo "$HELP" | grep -qE -- "^[[:space:]]*${o}([[:space:]=]|$)"; then SPV_OPT="$o"; break; fi
+done
+if [ -z "$SPV_OPT" ]; then
+  echo "ERROR: no shaderc option found in ./configure --help. Send the list above to Claude."
+  exit 1
+fi
+echo "Using shader compiler option: $SPV_OPT"
+
 ./configure \
   --prefix="$WORK/ffout" \
   --target-os=android --arch=aarch64 --cpu=armv8-a \
@@ -83,7 +99,7 @@ echo "==> [4/4] configure + make"
   --enable-network --enable-iconv --disable-bzlib \
   --enable-gray --enable-swscale-alpha --enable-runtime-cpudetect \
   --enable-jni --enable-mediacodec \
-  --enable-vulkan --enable-libshaderc \
+  --enable-vulkan $SPV_OPT \
   --extra-cflags="-O3 -fpic" \
   --extra-ldexeflags="-pie"
 
