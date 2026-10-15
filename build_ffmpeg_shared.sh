@@ -172,7 +172,7 @@ build soxr lib_soxr && FF_ENABLES+=(--enable-libsoxr)
 
 # Android has no libstdc++/libpthread/librt .so; the C++ runtime is linked statically via $EXTRA_LIBS
 for pc in "$PREFIX"/lib/pkgconfig/*.pc; do
-  [ -f "$pc" ] && sed -i -E 's/-l(stdc\+\+|c\+\+|pthread|rt)( |$)/\2/g' "$pc"
+  [ -f "$pc" ] && sed -i -E 's/-l(stdc\+\+|c\+\+|pthread|rt|gcc_s|gcc)( |$)/\2/g' "$pc"
 done
 
 echo "==> FFmpeg $FFMPEG_VER source"
@@ -212,25 +212,44 @@ else
 fi
 
 GPL_FLAG="--disable-gpl"; [ "$ENABLE_GPL" = "1" ] && GPL_FLAG="--enable-gpl"
-echo "==> FFmpeg configure. Extra libs enabled: ${FF_ENABLES[*]:-none}"
-./configure \
-  --prefix="$PREFIX" \
-  --target-os=android --arch=aarch64 --cpu=armv8-a --enable-cross-compile \
-  --cc="$CC" --cxx="$CXX" --ar="$AR" --nm="$NM" --ranlib="$RANLIB" --strip="$STRIP" \
-  --sysroot="$SYSROOT" \
-  --pkg-config=pkg-config --pkg-config-flags="--static" \
-  $GPL_FLAG --disable-nonfree \
-  --enable-static --disable-shared --enable-pic \
-  --disable-autodetect --disable-doc --disable-debug --disable-symver \
-  --disable-ffplay --disable-ffprobe --enable-ffmpeg --disable-avdevice \
-  --disable-vulkan --disable-opencl \
-  --enable-zlib --enable-iconv --enable-network \
-  --enable-gray --enable-swscale-alpha --enable-runtime-cpudetect \
-  --enable-jni --enable-mediacodec \
-  ${FF_ENABLES[@]+"${FF_ENABLES[@]}"} \
-  --extra-cflags="-O3 -fpic -I$PREFIX/include" \
-  --extra-ldflags="-L$PREFIX/lib" \
-  --extra-libs="$EXTRA_LIBS"
+run_configure() {
+  ./configure \
+    --prefix="$PREFIX" \
+    --target-os=android --arch=aarch64 --cpu=armv8-a --enable-cross-compile \
+    --cc="$CC" --cxx="$CXX" --ar="$AR" --nm="$NM" --ranlib="$RANLIB" --strip="$STRIP" \
+    --sysroot="$SYSROOT" \
+    --pkg-config=pkg-config --pkg-config-flags="--static" \
+    $GPL_FLAG --disable-nonfree \
+    --enable-static --disable-shared --enable-pic \
+    --disable-autodetect --disable-doc --disable-debug --disable-symver \
+    --disable-ffplay --disable-ffprobe --enable-ffmpeg --disable-avdevice \
+    --disable-vulkan --disable-opencl \
+    --enable-zlib --enable-iconv --enable-network \
+    --enable-gray --enable-swscale-alpha --enable-runtime-cpudetect \
+    --enable-jni --enable-mediacodec \
+    ${FF_ENABLES[@]+"${FF_ENABLES[@]}"} \
+    --extra-cflags="-O3 -fpic -I$PREFIX/include" \
+    --extra-ldflags="-L$PREFIX/lib" \
+    --extra-libs="$EXTRA_LIBS"
+}
+# If an optional library cannot be linked, drop it and retry instead of failing the whole build.
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+  echo "==> FFmpeg configure (attempt $attempt). Extra libs: ${FF_ENABLES[*]:-none}"
+  if run_configure > "$WORK/log_configure.txt" 2>&1; then echo "    configure OK"; break; fi
+  bad="$(grep -oE 'ERROR: [A-Za-z0-9_+.-]+' "$WORK/log_configure.txt" | head -n1 | awk '{print $2}')"
+  echo "    configure failed on: ${bad:-unknown}"
+  NEW=(); removed=0
+  for x in ${FF_ENABLES[@]+"${FF_ENABLES[@]}"}; do
+    if [ -n "$bad" ] && { [[ "$x" == *"$bad"* ]] || [[ "$x" == *"${bad%2}"* ]]; }; then removed=1; echo "    dropping $x"; else NEW+=("$x"); fi
+  done
+  if [ "$removed" = "0" ]; then
+    echo "ERROR: configure failed for a reason that is not an optional library:"
+    tail -n 40 "$WORK/log_configure.txt"; echo "---- config.log tail ----"; tail -n 60 ffbuild/config.log || true
+    exit 1
+  fi
+  FF_ENABLES=(${NEW[@]+"${NEW[@]}"})
+done
+[ -f config.h ] || { echo "ERROR: configure never succeeded"; tail -n 40 "$WORK/log_configure.txt"; exit 1; }
 
 echo "---- configured features ----"
 for k in JNI MEDIACODEC LIBX264 LIBX265 LIBVPX LIBMP3LAME LIBOPUS LIBVORBIS LIBFREETYPE LIBASS LIBWEBP LIBDAV1D LIBSOXR; do
