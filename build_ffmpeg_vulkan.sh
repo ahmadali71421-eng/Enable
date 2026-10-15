@@ -11,6 +11,7 @@ API=28
 FFMPEG_VER=9.0
 TARGET=aarch64-linux-android
 
+export API TARGET FFMPEG_VER ENABLE_GPL   # the per-library sub-shells need these too
 set -a   # export everything below so the per-library sub-shells see it
 NDK="${ANDROID_NDK_HOME:?Set ANDROID_NDK_HOME to your NDK path}"
 WORK="$PWD/build_mt"; PREFIX="$WORK/prefix"; SRC="$WORK/src"
