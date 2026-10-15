@@ -298,6 +298,8 @@ cat > "$WORK/jni/ffmpeg_jni.c" <<'EOC'
 #define LOG_CAP (256 * 1024)
 
 int ffmpeg_main(int argc, char **argv);
+/* declared in different headers across FFmpeg versions, so declare it ourselves (same signature) */
+const char *avcodec_configuration(void);
 #ifdef HAVE_CANCEL
 extern volatile int received_sigterm;
 extern volatile int received_nb_signals;
