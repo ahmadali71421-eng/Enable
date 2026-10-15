@@ -193,6 +193,8 @@ if [ ! -f .mt_patched ]; then
     echo "ERROR: 'int main(int argc, char **argv)' not found in fftools/ffmpeg.c (fftools layout changed)"; exit 1
   fi
   sed -i 's/^int main(int argc, char \*\*argv)/int ffmpeg_main(int argc, char **argv)/' fftools/ffmpeg.c
+  # FFmpeg builds with -Werror=missing-prototypes, so ffmpeg_main needs a prototype before its definition
+  sed -i '1i int ffmpeg_main(int argc, char **argv);' fftools/ffmpeg.c
   for f in fftools/*.c fftools/*/*.c; do
     [ -f "$f" ] || continue
     case "$f" in *ffprobe*|*ffplay*) continue;; esac
